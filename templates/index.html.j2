@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ site_title }}</title>
+  <meta name="description" content="Daily digest of GIS news from Esri, the open-source geospatial community and the wider industry.">
+  <meta name="theme-color" content="#20183E">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap masthead__inner">
+      <div class="brand">
+        <span class="brand__mark" aria-hidden="true"></span>
+        <h1 class="brand__title">{{ site_title }}</h1>
+      </div>
+      <p class="updated">
+        Last updated
+        <time class="mono" datetime="{{ updated_iso }}">{{ updated_display }}</time>
+      </p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="wrap toolbar__inner">
+      <div class="filters" role="group" aria-label="Filter by category">
+        <button type="button" class="chip" data-filter="all" aria-pressed="true">
+          All <span class="chip__count mono">{{ total }}</span>
+        </button>
+        {% for key, label in categories.items() %}
+        <button type="button" class="chip chip--{{ key }}" data-filter="{{ key }}" aria-pressed="false">
+          {{ label }} <span class="chip__count mono">{{ counts[key] }}</span>
+        </button>
+        {% endfor %}
+      </div>
+      <label class="search">
+        <span class="visually-hidden">Search news</span>
+        <svg class="search__icon" viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="M13 13l4.5 4.5"/></svg>
+        <input id="search" type="search" placeholder="Search titles, summaries, sources" autocomplete="off">
+      </label>
+    </div>
+  </div>
+
+  <main class="wrap" id="main">
+    <p class="result-count" id="result-count" aria-live="polite"></p>
+
+    {% for group in groups %}
+    <section class="day" data-day>
+      <h2 class="day__label">{{ group.label }}</h2>
+      <ol class="items">
+        {% for item in group["items"] %}
+        <li class="item" data-category="{{ item.category }}">
+          <div class="item__meta">
+            <span class="tag tag--{{ item.category }}">{{ categories[item.category] }}</span>
+            <span class="item__source">{{ item.source }}</span>
+            <time class="item__date mono" datetime="{{ item.date_iso }}">{{ item.date_display }}</time>
+          </div>
+          <h3 class="item__title"><a href="{{ item.link }}" rel="noopener" target="_blank">{{ item.title }}</a></h3>
+          {% if item.summary %}<p class="item__summary">{{ item.summary }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+    {% else %}
+    <p class="empty">No news in the last {{ max_age_days }} days. Check the feed list below.</p>
+    {% endfor %}
+
+    <p class="empty" id="no-results" hidden>Nothing matches that search.</p>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <details>
+        <summary>Sources ({{ status | selectattr("ok") | list | length }} of {{ status | length }} working on the last update)</summary>
+        <ul class="sources">
+          {% for s in status %}
+          <li class="{{ 'is-ok' if s.ok else 'is-failed' }}">
+            <span class="sources__dot" aria-hidden="true"></span>
+            <a href="{{ s.url }}" rel="noopener">{{ s.name }}</a>
+            <span class="sources__cat">{{ categories[s.category] }}</span>
+            {% if s.ok %}<span class="mono">{{ s.count }} items</span>{% else %}<span class="sources__err">skipped: {{ s.error }}</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      <p class="footer__note">Showing the last {{ max_age_days }} days. Headlines link to the original publishers.</p>
+    </div>
+  </footer>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
