@@ -30,11 +30,11 @@ body {
   line-height: 1.55;
 }
 
+/* Full width on every screen; side padding grows a little on big screens. */
 .wrap {
   width: 100%;
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 0 16px;
+  margin: 0;
+  padding: 0 clamp(16px, 2.5vw, 40px);
 }
 
 .mono { font-family: var(--mono); font-feature-settings: "tnum"; }
@@ -106,7 +106,7 @@ body {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   padding: 3px;            /* room for the focus ring */
   margin: -3px;
 }
@@ -140,7 +140,7 @@ body {
 
 .search {
   position: relative;
-  flex: 1 1 240px;
+  flex: 1 1 280px;
   max-width: 100%;
 }
 .search__icon {
@@ -170,7 +170,8 @@ body {
 }
 
 /* ---------- list ---------- */
-main { padding-top: 8px; padding-bottom: 40px; }
+body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+main { flex: 1 0 auto; padding-top: 8px; padding-bottom: 40px; }
 
 .result-count {
   margin: 14px 0 0;
@@ -189,20 +190,28 @@ main { padding-top: 8px; padding-bottom: 40px; }
   color: var(--text-soft);
 }
 
+/* Cards flow into as many columns as fit: 1 on phones, 2 on tablets,
+   3 to 5 on laptops and wide monitors. */
 .items {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--white);
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
-  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 12px;
+  margin-top: 12px;
 }
 .item {
+  display: flex;
+  flex-direction: column;
   padding: 16px 18px;
-  border-top: 1px solid var(--line);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color .15s, box-shadow .15s;
 }
-.item:first-child { border-top: 0; }
+.item:hover { border-color: rgba(32, 24, 62, 0.28); box-shadow: 0 2px 10px rgba(32, 24, 62, 0.06); }
+.item[hidden] { display: none; }
 
 .item__meta {
   display: flex;

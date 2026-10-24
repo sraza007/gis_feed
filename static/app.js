@@ -47,7 +47,7 @@
     if (state.query || state.filter !== "all") {
       countEl.textContent = shown + (shown === 1 ? " story" : " stories");
     } else {
-      countEl.textContent = items.length + " stories from the last 60 days";
+      countEl.textContent = items.length + " stories from the last " + (document.body.getAttribute("data-max-age") || "14") + " days";
     }
   }
 
