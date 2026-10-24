@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body data-max-age="{{ max_age_days }}">
   <header class="masthead">
     <div class="wrap masthead__inner">
       <div class="brand">
@@ -49,10 +49,9 @@
   <main class="wrap" id="main">
     <p class="result-count" id="result-count" aria-live="polite"></p>
 
-    {% for group in groups %}
-    <section class="day" data-day>
-      <h2 class="day__label">{{ group.label }}</h2>
-      <ol class="items">
+    {% if groups %}
+    <ol class="items">
+      {% for group in groups %}
         {% for item in group["items"] %}
         <li class="item" data-category="{{ item.category }}">
           <div class="item__meta">
@@ -64,11 +63,11 @@
           {% if item.summary %}<p class="item__summary">{{ item.summary }}</p>{% endif %}
         </li>
         {% endfor %}
-      </ol>
-    </section>
+      {% endfor %}
+    </ol>
     {% else %}
     <p class="empty">No news in the last {{ max_age_days }} days. Check the feed list below.</p>
-    {% endfor %}
+    {% endif %}
 
     <p class="empty" id="no-results" hidden>Nothing matches that search.</p>
   </main>
