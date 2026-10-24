@@ -1,0 +1,85 @@
+name: Build and publish GIS news
+
+on:
+  # GitHub's scheduler only understands UTC and ignores daylight saving time.
+  # 6:00 am Mountain is 12:00 UTC in summer (MDT) and 13:00 UTC in winter (MST),
+  # so we schedule both and the "timing" job below lets only the right one through.
+  # Note: GitHub can start scheduled runs 5 to 30 minutes late when it's busy.
+  schedule:
+    - cron: "0 12 * * *"
+    - cron: "0 13 * * *"
+  # Adds a "Run workflow" button on the Actions tab.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two builds at once; a newer one waits for the current one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  timing:
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+    steps:
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          if [ "$EVENT" != "schedule" ]; then
+            echo "Manual run, building now."
+            echo "go=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          offset=$(TZ=America/Edmonton date +%z)   # -0600 in summer, -0700 in winter
+          if { [ "$SCHEDULE" = "0 12 * * *" ] && [ "$offset" = "-0600" ]; } ||
+             { [ "$SCHEDULE" = "0 13 * * *" ] && [ "$offset" = "-0700" ]; }; then
+            echo "It's 6 am Mountain ($offset), building."
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "This trigger is for the other half of the year ($offset), skipping."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: timing
+    if: needs.timing.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Fetch feeds and build site
+        env:
+          # Last published items, so the site keeps 60 days even though feeds only list ~10 posts.
+          PREVIOUS_ITEMS_URL: ${{ steps.pages.outputs.base_url }}/items.json
+        run: python build.py
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
