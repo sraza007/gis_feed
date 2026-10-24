@@ -11,7 +11,7 @@ How items survive between runs (no database):
     that file from the live site (PREVIOUS_ITEMS_URL), merges it with whatever
     the feeds return today, and drops anything older than MAX_AGE_DAYS. Most
     feeds only list their last 10 or so posts, so this is what lets the site
-    hold a full 60 days.
+    hold the full MAX_AGE_DAYS window (14 days by default).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ OUT_DIR = ROOT / "public"
 TEMPLATE_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 
-MAX_AGE_DAYS = 60          # keep this many days of items
+MAX_AGE_DAYS = int(os.environ.get("MAX_AGE_DAYS", "14"))  # keep this many days of items
 SUMMARY_CHARS = 200        # summary length before "…"
 TIMEOUT_SECONDS = 20       # per feed
 MAX_WORKERS = 8            # feeds fetched in parallel
