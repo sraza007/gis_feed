@@ -1,0 +1,91 @@
+# GIS News Digest: feed list
+#
+# Each feed needs:
+#   name:     shown on the site next to each item
+#   url:      the RSS or Atom feed address
+#   category: one of  esri | open-source | industry
+#
+# Optional:
+#   enabled: false    temporarily switch a feed off without deleting it
+#
+# All URLs below were checked and returned live items in October 2026.
+
+feeds:
+  # ---------- Esri ----------
+  - name: ArcGIS Blog
+    url: https://www.esri.com/arcgis-blog/feed/?post_type=blog
+    category: esri
+
+  - name: Esri Newsroom (announcements)
+    url: https://www.esri.com/about/newsroom/feed/?post_type=announcements
+    category: esri
+
+  - name: Esri Newsroom (blog)
+    url: https://www.esri.com/about/newsroom/feed/?post_type=blog
+    category: esri
+
+  - name: ArcGIS Enterprise
+    url: https://www.esri.com/arcgis-blog/products/arcgis-enterprise/feed/
+    category: esri
+
+  - name: Survey123
+    url: https://www.esri.com/arcgis-blog/products/survey123/feed/
+    category: esri
+
+  # ---------- Open source ----------
+  - name: QGIS Blog
+    url: https://blog.qgis.org/index.xml
+    category: open-source
+
+  - name: OSGeo
+    url: https://www.osgeo.org/foundation-news/feed/
+    category: open-source
+
+  - name: GDAL Releases
+    url: https://github.com/OSGeo/gdal/releases.atom
+    category: open-source
+
+  - name: PostGIS
+    url: https://postgis.net/feed.xml
+    category: open-source
+
+  - name: GeoServer
+    url: https://geoserver.org/feed.xml
+    category: open-source
+
+  - name: OpenStreetMap Blog
+    url: https://blog.openstreetmap.org/feed/
+    category: open-source
+
+  - name: weeklyOSM
+    url: https://weeklyosm.eu/en/feed
+    category: open-source
+
+  # Planet QGIS aggregates many QGIS blogs, including the official one.
+  # It's listed after QGIS Blog so duplicates keep the official source name.
+  - name: Planet QGIS
+    url: https://planet.qgis.org/index.xml
+    category: open-source
+
+  # ---------- Industry news ----------
+  # gislounge.com now redirects to Geography Realm, so this is its feed.
+  - name: GIS Lounge / Geography Realm
+    url: https://www.geographyrealm.com/feed/
+    category: industry
+
+  - name: Geo Week News
+    url: https://www.geoweeknews.com/feed/
+    category: industry
+
+  # Added by Claude (not on the original list)
+  - name: Geospatial World
+    url: https://www.geospatialworld.net/feed/
+    category: industry
+
+  - name: Spatial Source
+    url: https://www.spatialsource.com.au/feed/
+    category: industry
+
+  - name: OGC News
+    url: https://www.ogc.org/feed/
+    category: industry
