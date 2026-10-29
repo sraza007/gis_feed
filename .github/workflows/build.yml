@@ -66,8 +66,12 @@ jobs:
 
       - name: Fetch feeds and build site
         env:
-          # Last published items, so the site keeps 60 days even though feeds only list ~10 posts.
+          # Last published items, so the site keeps 14 days even though feeds only list ~10 posts.
           PREVIOUS_ITEMS_URL: ${{ steps.pages.outputs.base_url }}/items.json
+          # Past repo picks, so the GitHub Repo of the Day never repeats within a year.
+          PREVIOUS_REPOS_URL: ${{ steps.pages.outputs.base_url }}/repos.json
+          # Built-in token; only used to search public repos (higher rate limit than anonymous).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python build.py
 
       - uses: actions/upload-pages-artifact@v3
