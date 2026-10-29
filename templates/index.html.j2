@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ site_title }}</title>
-  <meta name="description" content="Daily digest of GIS news from Esri, the open-source geospatial community and the wider industry.">
+  <meta name="description" content="Daily digest of GIS news from Esri, the open-source geospatial community and the wider industry, plus a GitHub repo of the day.">
   <meta name="theme-color" content="#20183E">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -53,14 +53,27 @@
     <ol class="items">
       {% for group in groups %}
         {% for item in group["items"] %}
-        <li class="item" data-category="{{ item.category }}">
+        <li class="item{% if item.repo %} item--repo{% endif %}{% if item.is_today %} is-today{% endif %}" data-category="{{ item.category }}">
           <div class="item__meta">
             <span class="tag tag--{{ item.category }}">{{ categories[item.category] }}</span>
             <span class="item__source">{{ item.source }}</span>
             <time class="item__date mono" datetime="{{ item.date_iso }}">{{ item.date_display }}</time>
           </div>
+          {% if item.repo %}
+          {% if item.is_today %}<p class="repo__badge">Repo of the day</p>{% endif %}
           <h3 class="item__title"><a href="{{ item.link }}" rel="noopener" target="_blank">{{ item.title }}</a></h3>
           {% if item.summary %}<p class="item__summary">{{ item.summary }}</p>{% endif %}
+          <ul class="repo__stats">
+            <li><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l1.9 4 4.3.5-3.2 2.9.9 4.3L8 11l-3.9 2.2.9-4.3L1.8 6l4.3-.5z"/></svg><span class="mono">{{ "{:,}".format(item.repo.stars) }}</span><span class="visually-hidden">stars</span></li>
+            <li><span class="mono">{{ "{:,}".format(item.repo.forks) }}</span> {{ "fork" if item.repo.forks == 1 else "forks" }}</li>
+            {% if item.repo.language %}<li>{{ item.repo.language }}</li>{% endif %}
+            {% if item.repo.license and item.repo.license != "NOASSERTION" %}<li class="mono">{{ item.repo.license }}</li>{% endif %}
+            <li class="repo__topic">#{{ item.repo.topic }}</li>
+          </ul>
+          {% else %}
+          <h3 class="item__title"><a href="{{ item.link }}" rel="noopener" target="_blank">{{ item.title }}</a></h3>
+          {% if item.summary %}<p class="item__summary">{{ item.summary }}</p>{% endif %}
+          {% endif %}
         </li>
         {% endfor %}
       {% endfor %}
@@ -87,7 +100,7 @@
           {% endfor %}
         </ul>
       </details>
-      <p class="footer__note">Showing the last {{ max_age_days }} days. Headlines link to the original publishers.</p>
+      <p class="footer__note">Showing the last {{ max_age_days }} days. Headlines link to the original publishers. One GIS repo from GitHub is picked each day and never repeats within a year.</p>
     </div>
   </footer>
 

@@ -12,6 +12,11 @@ How items survive between runs (no database):
     the feeds return today, and drops anything older than MAX_AGE_DAYS. Most
     feeds only list their last 10 or so posts, so this is what lets the site
     hold the full MAX_AGE_DAYS window (14 days by default).
+
+GitHub Repo of the Day:
+    Each build also picks one GIS repository from the GitHub search API and
+    adds it to public/repos.json. That file is carried over between runs the
+    same way, so a repo is never featured twice within REPO_HISTORY_DAYS.
 """
 
 from __future__ import annotations
@@ -55,7 +60,22 @@ CATEGORIES = {
     "esri": "Esri",
     "open-source": "Open Source",
     "industry": "Industry News",
+    "github": "GitHub Repo",
 }
+# Categories a feed in feeds.yaml can use. "github" is filled by the repo picker.
+FEED_CATEGORIES = ("esri", "open-source", "industry")
+
+# ---- GitHub Repo of the Day
+GITHUB_API = "https://api.github.com/search/repositories"
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # optional; raises the search rate limit
+REPO_HISTORY_DAYS = int(os.environ.get("REPO_HISTORY_DAYS", "365"))  # no repeats within this window
+REPO_MIN_STARS = int(os.environ.get("REPO_MIN_STARS", "50"))
+REPO_ACTIVE_DAYS = 90  # only repos with a push in this many days
+# One topic per day, in rotation, so the picks don't all come from one corner of GIS.
+REPO_TOPICS = [
+    "gis", "geospatial", "qgis", "arcgis", "remote-sensing",
+    "gdal", "mapping", "geojson", "spatial-analysis", "openstreetmap",
+]
 
 # Some sites reject requests that don't look like a browser.
 HEADERS = {
@@ -159,7 +179,7 @@ def load_feeds(path: Path) -> list[dict]:
         if feed.get("enabled", True) is False:
             continue
         category = str(feed.get("category", "industry")).strip().lower()
-        if category not in CATEGORIES:
+        if category not in FEED_CATEGORIES:
             log.warning("%s: unknown category %r, using 'industry'", feed["name"], category)
             category = "industry"
         feeds.append({"name": str(feed["name"]), "url": str(feed["url"]), "category": category})
@@ -296,6 +316,115 @@ def merge(fresh: list[dict], previous: list[dict], feed_order: list[str]) -> lis
     return kept
 
 
+# ---------------------------------------------------------------- repo of the day
+def load_previous_repos(url: str | None) -> list[dict]:
+    """Download repos.json (past picks) from the live site."""
+    if not url:
+        return []
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT_SECONDS)
+        if resp.status_code == 404:
+            log.info("No previous repos.json yet (first run)")
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        picks = data.get("picks", []) if isinstance(data, dict) else []
+        log.info("Loaded %d past repo picks", len(picks))
+        return [p for p in picks if isinstance(p, dict) and p.get("full_name") and p.get("date")]
+    except Exception as exc:
+        log.warning("Couldn't load previous repo picks from %s: %s", url, exc)
+        return []
+
+
+def search_repos(topic: str) -> list[dict]:
+    """Return active, reasonably popular repos for one topic, most stars first."""
+    since = (datetime.now(timezone.utc) - timedelta(days=REPO_ACTIVE_DAYS)).date().isoformat()
+    query = f"topic:{topic} stars:>={REPO_MIN_STARS} pushed:>={since} archived:false fork:false"
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": HEADERS["User-Agent"]}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    resp = requests.get(
+        GITHUB_API,
+        params={"q": query, "sort": "stars", "order": "desc", "per_page": 100},
+        headers=headers,
+        timeout=TIMEOUT_SECONDS,
+    )
+    resp.raise_for_status()
+    return resp.json().get("items", [])
+
+
+def pick_repo_of_day(previous: list[dict]) -> tuple[list[dict], dict]:
+    """Add today's pick (if there isn't one yet) and return (picks, status)."""
+    today = datetime.now(timezone.utc).astimezone(LOCAL_TZ).date()
+    cutoff = (today - timedelta(days=REPO_HISTORY_DAYS)).isoformat()
+    picks = sorted((p for p in previous if p["date"] >= cutoff), key=lambda p: p["date"], reverse=True)
+    status = {"name": "GitHub repo search", "url": "https://github.com/topics/gis",
+              "category": "github", "ok": True, "error": None, "count": 0}
+
+    if picks and picks[0]["date"] == today.isoformat():
+        log.info("ok      Repo of the day already picked: %s", picks[0]["full_name"])
+        status["count"] = 1
+        return picks, status
+
+    seen = {p["full_name"].lower() for p in picks}
+    start = today.toordinal() % len(REPO_TOPICS)
+    order = REPO_TOPICS[start:] + REPO_TOPICS[:start]
+    errors = []
+    for topic in order[:4]:  # today's topic, then a few fallbacks; keeps API calls low
+        try:
+            candidates = search_repos(topic)
+        except Exception as exc:
+            errors.append(f"{topic}: {type(exc).__name__}: {exc}"[:200])
+            continue
+        fresh = [r for r in candidates if r.get("full_name", "").lower() not in seen]
+        if not fresh:
+            continue
+        repo = fresh[0]
+        pick = {
+            "date": today.isoformat(),
+            "picked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "topic": topic,
+            "full_name": repo["full_name"],
+            "url": repo["html_url"],
+            "description": make_summary(repo.get("description") or ""),
+            "stars": repo.get("stargazers_count", 0),
+            "forks": repo.get("forks_count", 0),
+            "language": repo.get("language") or "",
+            "license": (repo.get("license") or {}).get("spdx_id") or "",
+            "pushed": repo.get("pushed_at") or "",
+        }
+        log.info("ok      Repo of the day: %s (topic %s, %d stars)", pick["full_name"], topic, pick["stars"])
+        status["count"] = 1
+        return [pick] + picks, status
+
+    status["ok"] = False
+    status["error"] = "; ".join(errors) or "no new repos found"
+    log.warning("SKIPPED repo of the day: %s", status["error"])
+    return picks, status
+
+
+def repo_items(picks: list[dict]) -> list[dict]:
+    """Turn recent picks into cards for the page (last MAX_AGE_DAYS only)."""
+    today = datetime.now(timezone.utc).astimezone(LOCAL_TZ).date()
+    cutoff = (today - timedelta(days=MAX_AGE_DAYS)).isoformat()
+    items = []
+    for p in picks:
+        if p["date"] < cutoff:
+            continue
+        items.append({
+            "id": "gh-" + hashlib.sha1(p["full_name"].lower().encode()).hexdigest()[:10],
+            "title": p["full_name"],
+            "link": p["url"],
+            "source": "GitHub",
+            "category": "github",
+            "summary": p.get("description", ""),
+            "published": p.get("picked_at") or f"{p['date']}T12:00:00+00:00",
+            "repo": p,
+            "is_today": p["date"] == today.isoformat(),
+        })
+    return items
+
+
 # ---------------------------------------------------------------- rendering
 def day_label(local_date, today) -> str:
     if local_date == today:
@@ -305,10 +434,13 @@ def day_label(local_date, today) -> str:
     return local_date.strftime("%A, %B %-d")
 
 
-def render(items: list[dict], status: list[dict], out_dir: Path) -> None:
+def render(items: list[dict], status: list[dict], out_dir: Path, repo_picks: list[dict] | None = None) -> None:
     now = datetime.now(timezone.utc)
     now_local = now.astimezone(LOCAL_TZ)
     today = now_local.date()
+    news_items = items
+    repo_picks = repo_picks or []
+    items = sorted(news_items + repo_items(repo_picks), key=lambda it: it["published"], reverse=True)
 
     groups: list[dict] = []
     for item in items:
@@ -327,6 +459,7 @@ def render(items: list[dict], status: list[dict], out_dir: Path) -> None:
         site_title=SITE_TITLE,
         groups=groups,
         total=len(items),
+        news_total=len(news_items),
         counts=counts,
         categories=CATEGORIES,
         status=sorted(status, key=lambda s: (list(CATEGORIES).index(s["category"]), s["name"].lower())),
@@ -345,10 +478,14 @@ def render(items: list[dict], status: list[dict], out_dir: Path) -> None:
 
     public_items = [
         {k: it[k] for k in ("id", "title", "link", "source", "category", "summary", "published")}
-        for it in items
+        for it in news_items
     ]
     (out_dir / "items.json").write_text(
         json.dumps({"updated": now.isoformat(timespec="seconds"), "items": public_items}, ensure_ascii=False, indent=1),
+        encoding="utf-8",
+    )
+    (out_dir / "repos.json").write_text(
+        json.dumps({"updated": now.isoformat(timespec="seconds"), "picks": repo_picks}, ensure_ascii=False, indent=1),
         encoding="utf-8",
     )
     (out_dir / "status.json").write_text(
@@ -364,6 +501,9 @@ def main() -> int:
     parser.add_argument("--out", default=str(OUT_DIR), help="output folder (default: public)")
     parser.add_argument("--previous", default=os.environ.get("PREVIOUS_ITEMS_URL"),
                         help="URL of the last published items.json")
+    parser.add_argument("--previous-repos", default=os.environ.get("PREVIOUS_REPOS_URL"),
+                        help="URL of the last published repos.json (default: next to items.json)")
+    parser.add_argument("--no-repo", action="store_true", help="skip the GitHub Repo of the Day")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
@@ -376,10 +516,20 @@ def main() -> int:
     fresh, status = fetch_all(feeds)
     previous = load_previous(args.previous)
     items = merge(fresh, previous, [f["name"] for f in feeds])
-    render(items, status, Path(args.out))
+
+    repo_picks: list[dict] = []
+    if not args.no_repo:
+        repos_url = args.previous_repos
+        if not repos_url and args.previous:
+            repos_url = args.previous.rsplit("/", 1)[0] + "/repos.json"
+        repo_picks, repo_status = pick_repo_of_day(load_previous_repos(repos_url))
+        status.append(repo_status)
+
+    render(items, status, Path(args.out), repo_picks)
 
     failed = [s["name"] for s in status if not s["ok"]]
-    log.info("Built %d items from %d/%d feeds into %s", len(items), len(feeds) - len(failed), len(feeds), args.out)
+    feeds_ok = sum(1 for s in status if s["ok"] and s["category"] != "github")
+    log.info("Built %d items from %d/%d feeds into %s", len(items), feeds_ok, len(feeds), args.out)
     if failed:
         log.warning("Feeds skipped this run: %s", ", ".join(failed))
         # Surface a visible warning in the GitHub Actions log without failing the job.

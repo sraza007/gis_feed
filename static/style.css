@@ -237,6 +237,32 @@ main { flex: 1 0 auto; padding-top: 8px; padding-bottom: 40px; }
 .tag--esri { background: var(--light-blue); }
 .tag--open-source { background: var(--yellow); }
 .tag--industry { background: var(--sand); box-shadow: inset 0 0 0 1px var(--line); }
+.tag--github { background: var(--midnight); color: var(--white); }
+
+/* ---------- GitHub repo cards ---------- */
+.item--repo.is-today { border: 2px solid var(--orange); }
+.repo__badge {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+.item--repo .item__title { overflow-wrap: anywhere; }
+.repo__stats {
+  list-style: none;
+  margin: auto 0 0;
+  padding: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+.repo__stats li { display: inline-flex; align-items: center; gap: 4px; }
+.repo__stats svg { width: 14px; height: 14px; fill: var(--yellow); stroke: var(--midnight); stroke-width: 1; }
+.repo__topic { color: var(--midnight); font-weight: 500; }
 
 .item__title {
   margin: 6px 0 4px;

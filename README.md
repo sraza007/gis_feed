@@ -78,6 +78,14 @@ python build.py
 # then open public/index.html in a browser
 ```
 
+## GitHub Repo of the Day
+
+The **GitHub Repo** tab shows one open-source GIS repository picked each morning, plus the picks from the last 14 days. Today's pick has an orange border and a "Repo of the day" label, and it also shows up at the top of **All**.
+
+How it's picked: each day uses one topic from a rotating list (`gis`, `geospatial`, `qgis`, `arcgis`, `remote-sensing`, `gdal`, `mapping`, `geojson`, `spatial-analysis`, `openstreetmap`). The build searches GitHub for active repos with that topic (at least 50 stars, a push in the last 90 days, not archived) and takes the most-starred one that hasn't been featured in the past year. Past picks are saved in `repos.json` on the site, the same way `items.json` works for news.
+
+To change the topics or thresholds, edit `REPO_TOPICS`, `REPO_MIN_STARS` and `REPO_ACTIVE_DAYS` near the top of `build.py`. If the GitHub search fails one morning, the news still builds and the Sources list shows a red dot for "GitHub repo search". Running the workflow again the same day keeps that day's pick instead of choosing a new one.
+
 ## Good to know
 
 - **The site keeps 14 days of news even though most feeds only list their last ~10 posts.** Each build saves an `items.json` file on the site, and the next build downloads it and adds the new items on top. If you ever want to start fresh, delete and re-create the Pages site, or just let old items age out.

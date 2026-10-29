@@ -9,7 +9,7 @@
   var search = document.getElementById("search");
   var countEl = document.getElementById("result-count");
   var noResults = document.getElementById("no-results");
-  var FILTERS = ["all", "esri", "open-source", "industry"];
+  var FILTERS = ["all", "esri", "open-source", "industry", "github"];
 
   // Pre-compute lowercase search text for each item once.
   var haystacks = items.map(function (el) {
@@ -44,7 +44,9 @@
     });
 
     noResults.hidden = shown !== 0 || items.length === 0;
-    if (state.query || state.filter !== "all") {
+    if (state.filter === "github") {
+      countEl.textContent = shown + (shown === 1 ? " repo" : " repos") + " picked in the last " + (document.body.getAttribute("data-max-age") || "14") + " days";
+    } else if (state.query || state.filter !== "all") {
       countEl.textContent = shown + (shown === 1 ? " story" : " stories");
     } else {
       countEl.textContent = items.length + " stories from the last " + (document.body.getAttribute("data-max-age") || "14") + " days";
