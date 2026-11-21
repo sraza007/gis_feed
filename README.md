@@ -7,7 +7,7 @@ A small static website that pulls the latest GIS news from Esri, the open-source
 | File | What it does |
 |---|---|
 | `feeds.yaml` | The list of news sources. Edit this to add or remove feeds. |
-| `build.py` | Downloads the feeds, removes duplicates, keeps the last 14 days, writes the site into `public/`. |
+| `build.py` | Downloads the feeds, removes duplicates, keeps the last 180 days, writes the site into `public/`. |
 | `templates/index.html.j2` | The page layout. |
 | `static/style.css`, `static/app.js`, `static/favicon.svg` | Styling, filter buttons and search. |
 | `.github/workflows/build.yml` | The daily schedule and the publish step. |
@@ -80,7 +80,7 @@ python build.py
 
 ## GitHub Repo of the Day
 
-The **GitHub Repo** tab shows one open-source GIS repository picked each morning, plus the picks from the last 14 days. Today's pick has an orange border and a "Repo of the day" label, and it also shows up at the top of **All**.
+The **GitHub Repo** tab shows one open-source GIS repository picked each morning, plus the picks from the last 180 days. Today's pick has an orange border and a "Repo of the day" label, and it also shows up at the top of **All**.
 
 How it's picked: each day uses one topic from a rotating list (`gis`, `geospatial`, `qgis`, `arcgis`, `remote-sensing`, `gdal`, `mapping`, `geojson`, `spatial-analysis`, `openstreetmap`). The build searches GitHub for active repos with that topic (at least 50 stars, a push in the last 90 days, not archived) and takes the most-starred one that hasn't been featured in the past year. Past picks are saved in `repos.json` on the site, the same way `items.json` works for news.
 
@@ -88,7 +88,7 @@ To change the topics or thresholds, edit `REPO_TOPICS`, `REPO_MIN_STARS` and `RE
 
 ## Good to know
 
-- **The site keeps 14 days of news even though most feeds only list their last ~10 posts.** Each build saves an `items.json` file on the site, and the next build downloads it and adds the new items on top. If you ever want to start fresh, delete and re-create the Pages site, or just let old items age out.
+- **The site keeps 180 days of news even though most feeds only list their last ~10 posts.** Each build saves an `items.json` file on the site, and the next build downloads it and adds the new items on top. If you ever want to start fresh, delete and re-create the Pages site, or just let old items age out.
 - **GitHub pauses scheduled workflows after 60 days with no commits** to the repository. You'll get an email first. Pressing **Run workflow** or making any small commit (like editing this README) turns the schedule back on.
 - **Scheduled runs can start 5 to 30 minutes late** when GitHub is busy. That's normal.
 - **Daylight saving time.** GitHub's scheduler only knows UTC, so the workflow has two triggers (12:00 and 13:00 UTC) and a small check that lets through only the one that equals 6:00 am Mountain on that day. The other one finishes in a few seconds without doing anything; that's expected.

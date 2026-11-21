@@ -11,7 +11,14 @@ How items survive between runs (no database):
     that file from the live site (PREVIOUS_ITEMS_URL), merges it with whatever
     the feeds return today, and drops anything older than MAX_AGE_DAYS. Most
     feeds only list their last 10 or so posts, so this is what lets the site
-    hold the full MAX_AGE_DAYS window (14 days by default).
+    hold the full MAX_AGE_DAYS window (180 days by default).
+
+Backfilling older posts (one-off):
+    python build.py --backfill 15   (or BACKFILL_PAGES=15)
+    also asks each feed for pages 2..15 of its archive (?paged=N, the WordPress
+    convention; GitHub release feeds use ?page=N). Feeds that don't support
+    paging just repeat page 1, which is detected and skipped. Use this once
+    after raising MAX_AGE_DAYS so the window fills without waiting months.
 
 GitHub Repo of the Day:
     Each build also picks one GIS repository from the GitHub search API and
@@ -49,7 +56,7 @@ OUT_DIR = ROOT / "public"
 TEMPLATE_DIR = ROOT / "templates"
 STATIC_DIR = ROOT / "static"
 
-MAX_AGE_DAYS = int(os.environ.get("MAX_AGE_DAYS", "14"))  # keep this many days of items
+MAX_AGE_DAYS = int(os.environ.get("MAX_AGE_DAYS", "180"))  # keep this many days of items
 SUMMARY_CHARS = 200        # summary length before "…"
 TIMEOUT_SECONDS = 20       # per feed
 MAX_WORKERS = 8            # feeds fetched in parallel
@@ -186,10 +193,20 @@ def load_feeds(path: Path) -> list[dict]:
     return feeds
 
 
-def fetch_feed(feed: dict) -> tuple[dict, list[dict], str | None]:
+def page_url(url: str, page: int) -> str:
+    """URL for page N of a feed's archive. Page 1 is the plain feed URL."""
+    if page <= 1:
+        return url
+    parts = urlsplit(url)
+    key = "page" if parts.netloc.lower().endswith("github.com") else "paged"
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k != key] + [(key, str(page))]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def fetch_feed(feed: dict, page: int = 1) -> tuple[dict, list[dict], str | None]:
     """Return (feed, items, error). Never raises."""
     try:
-        resp = requests.get(feed["url"], headers=HEADERS, timeout=TIMEOUT_SECONDS)
+        resp = requests.get(page_url(feed["url"], page), headers=HEADERS, timeout=TIMEOUT_SECONDS)
         resp.raise_for_status()
         parsed = feedparser.parse(resp.content)
     except requests.Timeout:
@@ -239,6 +256,34 @@ def fetch_all(feeds: list[dict]) -> tuple[list[dict], list[dict]]:
             items.extend(feed_items)
             status.append({**feed, "ok": error is None, "error": error, "count": len(feed_items)})
     return items, status
+
+
+def backfill_feed(feed: dict, first_page: list[dict], max_pages: int) -> list[dict]:
+    """Walk pages 2..max_pages of one feed's archive. Never raises."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_AGE_DAYS)
+    seen = {normalize_url(it["link"]) for it in first_page}
+    found: list[dict] = []
+    for page in range(2, max_pages + 1):
+        _, items, error = fetch_feed(feed, page)
+        new = [it for it in items if normalize_url(it["link"]) not in seen]
+        if error or not new:  # no paging support, or we ran off the end
+            break
+        seen.update(normalize_url(it["link"]) for it in new)
+        # Undated items would all get "now", which is wrong for old pages.
+        found.extend(it for it in new if it["dated"])
+        if all(datetime.fromisoformat(it["published"]) < cutoff for it in new):
+            break  # this page is already older than the window
+    log.info("backfill %-31s %3d older items", feed["name"], len(found))
+    return found
+
+
+def backfill_all(feeds: list[dict], fresh: list[dict], max_pages: int) -> list[dict]:
+    by_feed: dict[str, list[dict]] = {}
+    for it in fresh:
+        by_feed.setdefault(it["source"], []).append(it)
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+        results = pool.map(lambda f: backfill_feed(f, by_feed.get(f["name"], []), max_pages), feeds)
+        return [it for batch in results for it in batch]
 
 
 def load_previous(url: str | None) -> list[dict]:
@@ -504,6 +549,8 @@ def main() -> int:
     parser.add_argument("--previous-repos", default=os.environ.get("PREVIOUS_REPOS_URL"),
                         help="URL of the last published repos.json (default: next to items.json)")
     parser.add_argument("--no-repo", action="store_true", help="skip the GitHub Repo of the Day")
+    parser.add_argument("--backfill", type=int, default=int(os.environ.get("BACKFILL_PAGES") or 0),
+                        help="also fetch archive pages 2..N of each feed (one-off, to fill the window)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)-7s %(message)s")
@@ -514,6 +561,8 @@ def main() -> int:
         return 1
 
     fresh, status = fetch_all(feeds)
+    if args.backfill > 1:
+        fresh += backfill_all(feeds, fresh, args.backfill)
     previous = load_previous(args.previous)
     items = merge(fresh, previous, [f["name"] for f in feeds])
 

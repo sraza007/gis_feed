@@ -45,11 +45,11 @@
 
     noResults.hidden = shown !== 0 || items.length === 0;
     if (state.filter === "github") {
-      countEl.textContent = shown + (shown === 1 ? " repo" : " repos") + " picked in the last " + (document.body.getAttribute("data-max-age") || "14") + " days";
+      countEl.textContent = shown + (shown === 1 ? " repo" : " repos") + " picked in the last " + (document.body.getAttribute("data-max-age") || "180") + " days";
     } else if (state.query || state.filter !== "all") {
       countEl.textContent = shown + (shown === 1 ? " story" : " stories");
     } else {
-      countEl.textContent = items.length + " stories from the last " + (document.body.getAttribute("data-max-age") || "14") + " days";
+      countEl.textContent = items.length + " stories from the last " + (document.body.getAttribute("data-max-age") || "180") + " days";
     }
   }
 
